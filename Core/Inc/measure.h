@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include "def.h"
 
-#define NB_SAMPLES 64
 #define NB_FFT_CHANNELS 2
 
 #define ADC_BITS            12.
@@ -43,7 +42,7 @@ typedef struct {
     float energy;          // I*U.dt (W.s)
 } Current;
 
-void measureInit(uint32_t counterPeriod);
+void measureInit();
 void measureAdcCallback(uint32_t* data);
 
 void tensionSampleCalc(float deltaT, bool lastSample);

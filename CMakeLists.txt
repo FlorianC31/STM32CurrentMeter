@@ -21,8 +21,6 @@ endif()
 # Set the project name
 set(CMAKE_PROJECT_NAME STM32CurrentMeter-F767ZI)
 
-set(CMAKE_C_FLAGS_DEBUG "-O0")
-
 # Include toolchain file
 include("cmake/gcc-arm-none-eabi.cmake")
 

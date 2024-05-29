@@ -4,8 +4,6 @@ static Current current[NB_CURRENTS];
 
 static const float CURRENT_COEFFS[] = {1.2, 1.12, 1.54, 1.23, 1.42};
 
-static volatile bool anaysisComplete;
-
 static Tension tension;
 
 //static uint16_t fftId;
@@ -26,12 +24,10 @@ static float timerPeriod;
 static float totalMeasureTime;
 static float currentTime;
 
-void measureInit(uint32_t counterPeriod)
+void measureInit()
 {
-    timerPeriod = 1. / (CLOCK_FREQ * 1000000. / counterPeriod);    // seconds
+    timerPeriod = 1. / (CLOCK_FREQ * 1000000. / TIM_PERIOD);    // seconds
  
-    anaysisComplete = true;
-
     tensionInit(&tension);
     for (uint8_t i = 0; i != NB_CURRENTS; i++) {
         currentInit(&(current[i]));
@@ -50,13 +46,6 @@ void measureInit(uint32_t counterPeriod)
 
 void measureAdcCallback(uint32_t* data)
 {
-
-    if (!anaysisComplete) {
-        bool error = true;
-        UNUSED(error);
-    }
-    anaysisComplete = false;
-
     tension.prevVal = tension.val;
     tension.val = TENSION_COEFF * ((float)data[5] - (float)data[6]);
 
@@ -122,7 +111,7 @@ void measureAdcCallback(uint32_t* data)
         currentTime += timerPeriod;
     }
 
-    anaysisComplete = true;
+    return;
 }
 
 void tensionSampleCalc(float deltaT, bool lastSample)

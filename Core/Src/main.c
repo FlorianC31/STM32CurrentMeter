@@ -69,11 +69,7 @@ DMA_HandleTypeDef hdma_adc3;
 
 ETH_HandleTypeDef heth;
 
-TIM_HandleTypeDef htim1;
-
-UART_HandleTypeDef huart3;
-
-PCD_HandleTypeDef hpcd_USB_OTG_FS;
+TIM_HandleTypeDef htim3;
 
 /* USER CODE BEGIN PV */
 
@@ -83,6 +79,9 @@ uint32_t *adc3_buffer = &adcBuffer[NB_ADC1_PINS];
 
 volatile bool adc1Complete;
 volatile bool adc3Complete;
+volatile bool adcCompleteFlag = false;
+
+volatile bool measureCompleteFlag;
 
 /* USER CODE END PV */
 
@@ -92,10 +91,8 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC3_Init(void);
 static void MX_ETH_Init(void);
-static void MX_USART3_UART_Init(void);
-static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_TIM1_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -137,16 +134,15 @@ int main(void)
 	MX_DMA_Init();
 	MX_ADC3_Init();
 	MX_ETH_Init();
-	MX_USART3_UART_Init();
-	MX_USB_OTG_FS_PCD_Init();
 	MX_ADC1_Init();
-	MX_TIM1_Init();
+	MX_TIM3_Init();
 	/* USER CODE BEGIN 2 */
 
 	adc1Complete = true;
 	adc3Complete = true;
-	measureInit(htim1.Init.Period);
-	HAL_TIM_Base_Start_IT(&htim1);
+	measureCompleteFlag = true;
+	measureInit();
+	HAL_TIM_Base_Start_IT(&htim3);
 
 	/* USER CODE END 2 */
 
@@ -155,6 +151,12 @@ int main(void)
 	while (1)
 	{
 		/* USER CODE END WHILE */
+		if (measureCompleteFlag) {
+			HAL_GPIO_WritePin(FLAG1_GPIO_Port, FLAG1_Pin, GPIO_PIN_RESET);
+		}
+		else{
+			HAL_GPIO_WritePin(FLAG1_GPIO_Port, FLAG1_Pin, GPIO_PIN_SET);
+		}
 
 		/* USER CODE BEGIN 3 */
 	}
@@ -408,117 +410,51 @@ static void MX_ETH_Init(void)
 }
 
 /**
- * @brief TIM1 Initialization Function
+ * @brief TIM3 Initialization Function
  * @param None
  * @retval None
  */
-static void MX_TIM1_Init(void)
+static void MX_TIM3_Init(void)
 {
 
-	/* USER CODE BEGIN TIM1_Init 0 */
+	/* USER CODE BEGIN TIM3_Init 0 */
 
-	/* USER CODE END TIM1_Init 0 */
+	/* USER CODE END TIM3_Init 0 */
 
 	TIM_ClockConfigTypeDef sClockSourceConfig = {0};
 	TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-	/* USER CODE BEGIN TIM1_Init 1 */
+	/* USER CODE BEGIN TIM3_Init 1 */
 
-	/* USER CODE END TIM1_Init 1 */
-	htim1.Instance = TIM1;
-	htim1.Init.Prescaler = 0;
-	htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim1.Init.Period = 17280;
-	htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-	htim1.Init.RepetitionCounter = 0;
-	htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+	/* USER CODE END TIM3_Init 1 */
+	htim3.Instance = TIM3;
+	htim3.Init.Prescaler = 0;
+	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim3.Init.Period = 17280;
+	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
 	{
 		Error_Handler();
 	}
 	sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-	if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+	if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
 	{
 		Error_Handler();
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-	sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
 	{
 		Error_Handler();
 	}
-	/* USER CODE BEGIN TIM1_Init 2 */
+	/* USER CODE BEGIN TIM3_Init 2 */
 
-	/* USER CODE END TIM1_Init 2 */
-}
+	htim3.Init.Period = TIM_PERIOD;
+	double tim3Freq = 1000000. / TIM_CONSTANT / NB_SAMPLES / NB_SAMPLES;	// Should be equal to 48.828125Hz
+	UNUSED(tim3Freq);
 
-/**
- * @brief USART3 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_USART3_UART_Init(void)
-{
-
-	/* USER CODE BEGIN USART3_Init 0 */
-
-	/* USER CODE END USART3_Init 0 */
-
-	/* USER CODE BEGIN USART3_Init 1 */
-
-	/* USER CODE END USART3_Init 1 */
-	huart3.Instance = USART3;
-	huart3.Init.BaudRate = 115200;
-	huart3.Init.WordLength = UART_WORDLENGTH_8B;
-	huart3.Init.StopBits = UART_STOPBITS_1;
-	huart3.Init.Parity = UART_PARITY_NONE;
-	huart3.Init.Mode = UART_MODE_TX_RX;
-	huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-	huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-	huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-	if (HAL_UART_Init(&huart3) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	/* USER CODE BEGIN USART3_Init 2 */
-
-	/* USER CODE END USART3_Init 2 */
-}
-
-/**
- * @brief USB_OTG_FS Initialization Function
- * @param None
- * @retval None
- */
-static void MX_USB_OTG_FS_PCD_Init(void)
-{
-
-	/* USER CODE BEGIN USB_OTG_FS_Init 0 */
-
-	/* USER CODE END USB_OTG_FS_Init 0 */
-
-	/* USER CODE BEGIN USB_OTG_FS_Init 1 */
-
-	/* USER CODE END USB_OTG_FS_Init 1 */
-	hpcd_USB_OTG_FS.Instance = USB_OTG_FS;
-	hpcd_USB_OTG_FS.Init.dev_endpoints = 6;
-	hpcd_USB_OTG_FS.Init.speed = PCD_SPEED_FULL;
-	hpcd_USB_OTG_FS.Init.dma_enable = DISABLE;
-	hpcd_USB_OTG_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
-	hpcd_USB_OTG_FS.Init.Sof_enable = ENABLE;
-	hpcd_USB_OTG_FS.Init.low_power_enable = DISABLE;
-	hpcd_USB_OTG_FS.Init.lpm_enable = DISABLE;
-	hpcd_USB_OTG_FS.Init.vbus_sensing_enable = ENABLE;
-	hpcd_USB_OTG_FS.Init.use_dedicated_ep1 = DISABLE;
-	if (HAL_PCD_Init(&hpcd_USB_OTG_FS) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	/* USER CODE BEGIN USB_OTG_FS_Init 2 */
-
-	/* USER CODE END USB_OTG_FS_Init 2 */
+	/* USER CODE END TIM3_Init 2 */
 }
 
 /**
@@ -556,14 +492,14 @@ static void MX_GPIO_Init(void)
 	__HAL_RCC_GPIOH_CLK_ENABLE();
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
-	__HAL_RCC_GPIOD_CLK_ENABLE();
 	__HAL_RCC_GPIOG_CLK_ENABLE();
+	__HAL_RCC_GPIOD_CLK_ENABLE();
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOB, LD1_Pin | LD3_Pin | LD2_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOG, FLAG1_Pin | FLAG2_Pin | USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin : USER_Btn_Pin */
 	GPIO_InitStruct.Pin = USER_Btn_Pin;
@@ -578,6 +514,21 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+	/*Configure GPIO pins : FLAG1_Pin FLAG2_Pin */
+	GPIO_InitStruct.Pin = FLAG1_Pin | FLAG2_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+	HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : STLK_RX_Pin STLK_TX_Pin */
+	GPIO_InitStruct.Pin = STLK_RX_Pin | STLK_TX_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+	GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
+	HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
 	/*Configure GPIO pin : USB_PowerSwitchOn_Pin */
 	GPIO_InitStruct.Pin = USB_PowerSwitchOn_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -590,6 +541,20 @@ static void MX_GPIO_Init(void)
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(USB_OverCurrent_GPIO_Port, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : USB_SOF_Pin USB_ID_Pin USB_DM_Pin USB_DP_Pin */
+	GPIO_InitStruct.Pin = USB_SOF_Pin | USB_ID_Pin | USB_DM_Pin | USB_DP_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+	GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : USB_VBUS_Pin */
+	GPIO_InitStruct.Pin = USB_VBUS_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(USB_VBUS_GPIO_Port, &GPIO_InitStruct);
 
 	/* USER CODE BEGIN MX_GPIO_Init_2 */
 	/* USER CODE END MX_GPIO_Init_2 */
@@ -605,20 +570,18 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	}
 }
 
-__attribute__((optimize("O0")))
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	// If the interup comes from Timer3
-	if (htim == &htim1)
+	if (htim == &htim3)
 	{
 		if (!adc1Complete || !adc3Complete)
 		{
 			bool error = true;
 			UNUSED(error);
 		}
-		// HAL_GPIO_WritePin(TIM1_SCOPE_GPIO_Port, TIM1_SCOPE_Pin, GPIO_PIN_SET);
-		// HAL_GPIO_WritePin(TIM3_SCOPE_GPIO_Port, TIM3_SCOPE_Pin, GPIO_PIN_SET);
-		
+		//HAL_GPIO_WritePin(FLAG1_GPIO_Port, FLAG1_Pin, GPIO_PIN_SET);
+
 		adc1Complete = false;
 		adc3Complete = false;
 
@@ -631,19 +594,44 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
 	if (hadc == &hadc1)
 	{
-		//adc1Complete = true;
+		adc1Complete = true;
 		HAL_ADC_Stop_DMA(&hadc1);
-		// HAL_GPIO_WritePin(TIM1_SCOPE_GPIO_Port, TIM1_SCOPE_Pin, GPIO_PIN_RESET);
+		//HAL_GPIO_WritePin(FLAG1_GPIO_Port, FLAG1_Pin, GPIO_PIN_RESET);
 	}
 	else if (hadc == &hadc3)
 	{
-		//adc3Complete = true;
+		adc3Complete = true;
 		HAL_ADC_Stop_DMA(&hadc3);
-		// HAL_GPIO_WritePin(TIM3_SCOPE_GPIO_Port, TIM3_SCOPE_Pin, GPIO_PIN_RESET);
 	}
 	if (adc1Complete && adc3Complete)
 	{
+
+		/*adcCompleteFlag = !adcCompleteFlag;
+		bool localAdcCompleteFlag = adcCompleteFlag;
+
+		if (localAdcCompleteFlag) {
+			HAL_GPIO_WritePin(FLAG1_GPIO_Port, FLAG1_Pin, GPIO_PIN_SET);
+		}
+		else {
+			HAL_GPIO_WritePin(FLAG2_GPIO_Port, FLAG2_Pin, GPIO_PIN_SET);
+		}*/
+		if (!measureCompleteFlag) {
+			bool error = true;
+			UNUSED(error);
+			HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
+		}
+		HAL_GPIO_WritePin(FLAG2_GPIO_Port, FLAG2_Pin, GPIO_PIN_SET);
+		measureCompleteFlag = false;
 		measureAdcCallback(adcBuffer);
+		measureCompleteFlag = true;
+		HAL_GPIO_WritePin(FLAG2_GPIO_Port, FLAG2_Pin, GPIO_PIN_RESET);
+
+		/*if (localAdcCompleteFlag) {
+			HAL_GPIO_WritePin(FLAG1_GPIO_Port, FLAG1_Pin, GPIO_PIN_RESET);
+		}
+		else {
+			HAL_GPIO_WritePin(FLAG2_GPIO_Port, FLAG2_Pin, GPIO_PIN_RESET);
+		}*/
 	}
 }
 

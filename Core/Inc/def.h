@@ -9,7 +9,11 @@
 #define UNUSED (void)
 #endif
 
-#define CLOCK_FREQ  216                 // MHz
+#define CLOCK_FREQ      216                 // MHz
+#define NB_SAMPLES      128
+#define TIM_CONSTANT    0.3125              // µs
+#define TIM_PERIOD      TIM_CONSTANT * CLOCK_FREQ * NB_SAMPLES
+
 
 #define NB_CURRENTS 5                   // 5 current channels
 #define NB_ADC_PINS NB_CURRENTS + 2     // + 1 channel for the tension and 1 for Vref
