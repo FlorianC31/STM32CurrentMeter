@@ -24,9 +24,12 @@ static float timerPeriod;
 static float totalMeasureTime;
 static float currentTime;
 
+static float tensionBuffer[NB_SAMPLES];
+static float currentBuffers[NB_CURRENTS][NB_SAMPLES];
+
 void measureInit()
 {
-    timerPeriod = 1. / (CLOCK_FREQ * 1000000. / TIM_PERIOD);    // seconds
+    timerPeriod = TIM_PERIOD / 1000000.;    // seconds
  
     tensionInit(&tension);
     for (uint8_t i = 0; i != NB_CURRENTS; i++) {

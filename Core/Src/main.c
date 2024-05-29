@@ -450,9 +450,7 @@ static void MX_TIM3_Init(void)
 	}
 	/* USER CODE BEGIN TIM3_Init 2 */
 
-	htim3.Init.Period = TIM_PERIOD;
-	double tim3Freq = 1000000. / TIM_CONSTANT / NB_SAMPLES / NB_SAMPLES;	// Should be equal to 48.828125Hz
-	UNUSED(tim3Freq);
+	htim3.Init.Period = TIM_DIVIDER;
 
 	/* USER CODE END TIM3_Init 2 */
 }
