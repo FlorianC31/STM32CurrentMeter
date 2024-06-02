@@ -59,4 +59,6 @@ void rmsInit(Rms* rms);
 void saveRms(Rms* rms);
 void updateRms(Rms* rms, float val, float deltaT);
 
+void sendError(ErrorCode errorCode, float value);
+
 #endif  // MEASURE_H

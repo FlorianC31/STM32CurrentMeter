@@ -22,14 +22,24 @@ static InitState initState;
 static float timerPeriod;
 
 static float totalMeasureTime;
-static float currentTime;
+static float periodTime;
 
 static float tensionBuffer[NB_SAMPLES];
 static float currentBuffers[NB_CURRENTS][NB_SAMPLES];
 
+static int iBuffer;
+
+static float periodTimeBuffer[1024];
+static uint16_t iPeriodTimeBuffer = 0;
+
 void measureInit()
 {
     timerPeriod = TIM_PERIOD / 1000000.;    // seconds
+    float freq = 1. / timerPeriod;
+
+    if (freq > MAX_AC_FREQ && (freq < MIN_AC_FREQ)) {
+        sendError(INIT_ERROR, freq);
+    }
  
     tensionInit(&tension);
     for (uint8_t i = 0; i != NB_CURRENTS; i++) {
@@ -44,11 +54,16 @@ void measureInit()
     fftRunning = false;
 
     initState = INIT;
+
+    iBuffer = 0;
 }
 
 
 void measureAdcCallback(uint32_t* data)
 {
+    periodTimeBuffer[iPeriodTimeBuffer] = periodTime;
+    iPeriodTimeBuffer++;
+
     tension.prevVal = tension.val;
     tension.val = TENSION_COEFF * ((float)data[5] - (float)data[6]);
 
@@ -67,7 +82,7 @@ void measureAdcCallback(uint32_t* data)
                 totalMeasureTime = 0.;
                 tensionSampleCalc(deltaT, false);
                 currentSampleCalc(data, deltaT, false);
-                currentTime = deltaT;
+                periodTime = deltaT;
                 initState = NORMAL_PHASE;
             }
             return;
@@ -79,20 +94,26 @@ void measureAdcCallback(uint32_t* data)
     }
 
     if (isCrossingZero(&czPoint)) {
+
+        // Robustess check
+        if (periodTime < (1. / MAX_AC_FREQ)) {
+            sendError(AC_FREQ_ERROR, 1. / periodTime);
+        }
+
         // Calculation of the last point of the previous period
         deltaT = timerPeriod * czPoint;
         tensionSampleCalc(deltaT, true);
         currentSampleCalc(data, deltaT, true);
         
         // update current time with the last step of the previous period
-        currentTime += deltaT;
+        periodTime += deltaT;
 
         // Calculation of the complete previous period
         tensionPeriodCalc();
         currentPeriodCalc();
 
         // add the last period time to the the total Measure Time
-        totalMeasureTime += currentTime;
+        totalMeasureTime += periodTime;
         
         // Calculation of the first point of the new period
         deltaT = timerPeriod * (1. - czPoint);
@@ -100,7 +121,7 @@ void measureAdcCallback(uint32_t* data)
         currentSampleCalc(data, deltaT, false);
 
         // initialize current time with the first step of the new period
-        currentTime = deltaT;
+        periodTime = deltaT;
         
         // After 5 minutes, send the set of data through the UART and reset the data set
         if (totalMeasureTime > DATA_SENT_PERIOD) {
@@ -111,7 +132,24 @@ void measureAdcCallback(uint32_t* data)
     else {
         tensionSampleCalc(timerPeriod, false);
         currentSampleCalc(data, timerPeriod, false);
-        currentTime += timerPeriod;
+        periodTime += timerPeriod;
+        
+        // Storage of the tension and currents val in the buffers
+        tensionBuffer[iBuffer] = tension.val;
+        for (uint8_t i = 0; i < NB_CURRENTS; i++) {
+            currentBuffers[i][iBuffer] = current[i].val;
+        }
+
+        iBuffer++;
+        if (iBuffer == NB_SAMPLES) {
+            iBuffer = 0;
+        }
+
+
+
+        if (periodTime > (1. / MIN_AC_FREQ)) {
+            sendError(AC_FREQ_ERROR, 1. / periodTime);
+        }
     }
 
     return;
@@ -153,14 +191,14 @@ void currentPeriodCalc()
 
 void tensionPeriodCalc()
 {
-    float freq = 1. / currentTime;
+    float freq = 1. / periodTime;
     if (freq < tension.freqMin) {
         tension.freqMin = freq;
     }
     if (freq > tension.freqMax) {
         tension.freqMax = freq;
     }
-    tension.freqMean = (tension.freqMean * totalMeasureTime + freq * currentTime) / (totalMeasureTime + currentTime);
+    tension.freqMean = (tension.freqMean * totalMeasureTime + freq * periodTime) / (totalMeasureTime + periodTime);
     saveRms(&(tension.rms));
 }
 
@@ -169,9 +207,14 @@ bool isCrossingZero(float* czPoint)
 {
     if (tension.val >= 0. && tension.prevVal < 0.) {
         // Linear interpolation to find the exact index where the tension curve is crossing zero
-        float a = (tension.val - tension.prevVal);
-        float b = -tension.val * a;
+        float a = tension.val - tension.prevVal;
+        float b = tension.prevVal;
         *czPoint = -b / a;
+
+        if (*czPoint > 1 || *czPoint < 0) {
+            sendError(IMPOSSIBLE_VALUE_ERROR, *czPoint);
+        }
+
         return true;
     }
     else {
@@ -214,7 +257,7 @@ void rmsInit(Rms* rms)
 
 void saveRms(Rms* rms)
 {
-    float rmsVal = pow(rms->temp / currentTime, 0.5);
+    float rmsVal = pow(rms->temp / periodTime, 0.5);
     rms->temp = 0.;
 
     if (rmsVal < rms->min) {
@@ -224,10 +267,16 @@ void saveRms(Rms* rms)
         rms->max = rmsVal;
     }
 
-    rms->mean = (rms->mean * totalMeasureTime + rmsVal * currentTime) / (totalMeasureTime + currentTime);
+    rms->mean = (rms->mean * totalMeasureTime + rmsVal * periodTime) / (totalMeasureTime + periodTime);
 }
 
 void updateRms(Rms* rms, float val, float deltaT)
 {
     rms->temp += pow(val, 2) * deltaT;
+}
+
+void sendError(ErrorCode errorCode, float value)
+{
+    UNUSED(errorCode);
+    UNUSED(value);
 }
