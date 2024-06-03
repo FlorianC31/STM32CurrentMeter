@@ -2,7 +2,9 @@
 
 static Current current[NB_CURRENTS];
 
-static const float CURRENT_COEFFS[] = {1.2, 1.12, 1.54, 1.23, 1.42};
+// 5 currents channels and 1 tension (y = A . x + B)
+static const float CALIB_A_COEFFS[] = {0.0387, 0.0168, 0.0162, 0.0233, 0.0538, 0.412572};       // 5 currents channels and 1 tension (y = A . x + B)
+static const float CALIB_B_COEFFS[] = {0., 0., 0., 0., 0., 0.}; //{0.014, -0.006, -0.054, -0.0515, 0.0395, 0.2065};
 
 static Tension tension;
 
@@ -65,7 +67,7 @@ void measureAdcCallback(uint32_t* data)
     iPeriodTimeBuffer++;
 
     tension.prevVal = tension.val;
-    tension.val = TENSION_COEFF * ((float)data[5] - (float)data[6]);
+    tension.val = CALIB_A_COEFFS[TENSION_ID] * ((float)data[TENSION_ID] - (float)data[VREF_ID]) + CALIB_B_COEFFS[TENSION_ID];
 
     float czPoint;
     float deltaT;
@@ -158,6 +160,12 @@ void measureAdcCallback(uint32_t* data)
 void tensionSampleCalc(float deltaT, bool lastSample)
 {
     if (!lastSample) {
+        if (tension.val > tension.maxVal) {
+            tension.maxVal = tension.val;
+        }
+        else if (tension.val < tension.minVal) {
+            tension.minVal = tension.val;
+        }
         updateRms(&(tension.rms), tension.val, deltaT);
     }
 }
@@ -166,7 +174,7 @@ void currentSampleCalc(uint32_t* data, float deltaT, bool lastSample)
 {
     for (uint8_t i = 0; i != NB_CURRENTS; i++) {
         current[i].prevVal = current[i].val;
-        current[i].val = CURRENT_COEFFS[i] * ((float)data[i] - (float)data[6]);
+        current[i].val = CALIB_A_COEFFS[i] * ((float)data[i] - (float)data[VREF_ID]) + CALIB_B_COEFFS[i];
         float I = current[i].val;
 
         if (lastSample) {
@@ -178,6 +186,12 @@ void currentSampleCalc(uint32_t* data, float deltaT, bool lastSample)
             current[i].energy += tension.val * I;
         }
 
+        if (current[i].val > current[i].maxVal) {
+            current[i].maxVal = current[i].val;
+        }
+        else if (current[i].val < current[i].minVal) {
+            current[i].minVal = current[i].val;
+        }
         updateRms(&(current[i].rms), I, deltaT);
     }
 }
@@ -233,6 +247,8 @@ void tensionInit(Tension* tension)
 {
     tension->val = 0.;
     tension->prevVal = 0.;
+    tension->maxVal = -999999.;
+    tension->minVal = 999999.;
     rmsInit(&(tension->rms));
     tension->freqMean = 0.;
     tension->freqMin = 999999.;
@@ -243,6 +259,8 @@ void currentInit(Current* current)
 {
     current->val = 0.;
     current->prevVal = 0.;
+    current->maxVal = -999999;
+    current->minVal = 999999.;
     current->energy = 0.;
     rmsInit(&(current->rms));
 }
@@ -250,7 +268,7 @@ void currentInit(Current* current)
 
 void rmsInit(Rms* rms)
 {
-    rms->max = 0.;
+    rms->max = -999999.;
     rms->mean = 0.;
     rms->min = 999999.;
 }

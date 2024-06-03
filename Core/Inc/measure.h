@@ -10,8 +10,10 @@
 #define ADC_BITS            12.
 #define ADC_COEFF_A         (500. / pow(2., ADC_BITS))
 #define ADC_COEFF_B         127.
-#define TENSION_COEFF       0.412572
 #define DATA_SENT_PERIOD    10.   // 5. * 60.    // 5 minutes
+
+#define TENSION_ID      NB_CURRENTS + 0
+#define VREF_ID         NB_CURRENTS + 1
 
 typedef struct {
     float temp;
@@ -29,6 +31,8 @@ typedef enum {
 typedef struct {
     float val;
     float prevVal;
+    float maxVal;
+    float minVal;
     float freqMean;
     float freqMax;
     float freqMin;
@@ -38,6 +42,8 @@ typedef struct {
 typedef struct {
     float val;
     float prevVal;
+    float maxVal;
+    float minVal;
     Rms rms;               // Irms (A)
     float energy;          // I*U.dt (W.s)
 } Current;
